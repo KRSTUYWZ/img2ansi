@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Img2Ansi Browser Example</title>
+    <script src="../Lib/img2ansi.js"></script>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        h1 {
+            color: #2563eb;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .panel {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 20px;
+            background-color: #f9fafb;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            min-width: 150px;
+        }
+
+        label {
+            font-weight: 500;
+            margin-bottom: 5px;
+        }
+
+        button {
+            background-color: #2563eb;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        button:hover {
+            background-color: #1d4ed8;
+        }
+
+        button:disabled {
+            background-color: #93c5fd;
+            cursor: not-allowed;
+        }
+
+        .preview-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .image-preview {
+            max-width: 100%;
+            max-height: 300px;
+            object-fit: contain;
+        }
+
+        .ansi-output {
+            white-space: pre;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            line-height: 1;
+            font-size: 10px;
+            background-color: #1f2937;
+            color: #f9fafb;
+            padding: 15px;
+            border-radius: 4px;
+            max-height: 400px;
+        }
+
+        .ansi-rendered {
+            line-height: 1;
+        }
+
+        .ansi-rendered span {
+            display: inline-block;
+        }
+
+        .error {
+            color: #ef4444;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <h1>Img2Ansi Browser Example</h1>
+
+    <div class="container">
+        <div class="panel">
+            <h2>1. Upload an Image</h2>
+            <input type="file" id="imageUpload" accept="image/*">
+            <div class="preview-container">
+                <img id="imagePreview" class="image-preview" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect width='400' height='300' fill='%23f3f4f6'/%3E%3Ctext x='50%25' y='50%25' font-family='Arial' font-size='24' text-anchor='middle' dominant-baseline='middle' fill='%236b7280'%3EImage Preview%3C/text%3E%3C/svg%3E" alt="Image Preview">
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>2. Configure Settings</h2>
+            <div class="controls">
+                <div class="control-group">
+                    <label for="widthInput">Width (characters)</label>
+                    <input type="number" id="widthInput" value="80" min="10" max="200">
+                </div>
+
+                <div class="control-group">
+                    <label for="heightInput">Height (optional)</label>
+                    <input type="number" id="heightInput" min="5" max="100">
+                </div>
+
+                <div class="control-group">
+                    <label for="qualitySelect">Quality</label>
+                    <select id="qualitySelect">
+                        <option value="high" selected>High</option>
+                        <option value="perfect">Perfect</option>
+                        <option value="medium">Medium</option>
+                        <option value="low">Low</option>
+                    </select>
+                </div>
+            </div>
+
+            <button id="generateButton" disabled>Generate ANSI Art</button>
+            <p id="errorMessage" class="error"></p>
+        </div>
+
+        <div class="panel" id="resultPanel" style="display: none;">
+            <h2>3. Results</h2>
+
+            <h3>Rendered Preview:</h3>
+            <div id="ansiRendered" class="ansi-output ansi-rendered"></div>
+
+            <h3>Raw ANSI Output:</h3>
+            <pre id="ansiRaw" class="ansi-output"></pre>
+
+            <h3>Printf Command:</h3>
+            <pre id="printfCommand" class="ansi-output"></pre>
+            <button id="copyButton">Copy Printf Command</button>
+        </div>
+    </div>
+
+    <script>
+        const img2ansi = new Img2Ansi({
+            escChar: '\u001b',
+            lineEnding: '\n',
+            quality: 'high'
+        });
+
+        const imageUpload = document.getElementById('imageUpload');
+        const imagePreview = document.getElementById('imagePreview');
+        const widthInput = document.getElementById('widthInput');
+        const heightInput = document.getElementById('heightInput');
+        const qualitySelect = document.getElementById('qualitySelect');
+        const generateButton = document.getElementById('generateButton');
+        const errorMessage = document.getElementById('errorMessage');
+        const resultPanel = document.getElementById('resultPanel');
+        const ansiRendered = document.getElementById('ansiRendered');
+        const ansiRaw = document.getElementById('ansiRaw');
+        const printfCommand = document.getElementById('printfCommand');
+        const copyButton = document.getElementById('copyButton');
+
+        let uploadedImage = null;
+
+        imageUpload.addEventListener('change', handleImageUpload);
+        generateButton.addEventListener('click', generateAnsiArt);
+        copyButton.addEventListener('click', copyPrintfCommand);
+
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) {
+                return;
+            }
+
+            if (!file.type.startsWith('image/')) {
+                showError('Please upload a valid image file.');
+                return;
+            }
+
+            const reader = new FileReader();
+
+            reader.onload = (e) => {
+                imagePreview.src = e.target.result;
+                uploadedImage = new Image();
+
+                uploadedImage.onload = () => {
+                    generateButton.disabled = false;
+                    hideError();
+                };
+
+                uploadedImage.onerror = () => {
+                    showError('Failed to load image.');
+                    uploadedImage = null;
+                };
+
+                uploadedImage.src = e.target.result;
+            };
+
+            reader.onerror = () => {
+                showError('Failed to read file.');
+            };
+
+            reader.readAsDataURL(file);
+        }
+
+        async function generateAnsiArt() {
+            if (!uploadedImage || !uploadedImage.complete || uploadedImage.naturalHeight === 0) {
+                showError('Please upload a valid image.');
+                return;
+            }
+
+            const width = parseInt(widthInput.value, 10) || 80;
+            const height = parseInt(heightInput.value, 10) || null;
+            const quality = qualitySelect.value;
+
+            generateButton.disabled = true;
+            hideError();
+
+            try {
+                const ansiString = img2ansi.convertToAnsi({
+                    img: uploadedImage,
+                    width: width,
+                    height: height,
+                    quality: quality
+                });
+
+                resultPanel.style.display = 'block';
+
+                img2ansi.renderToHtml(ansiString, ansiRendered);
+
+                ansiRaw.textContent = ansiString
+                    .replace(/\u001b/g, '\\e')
+                    .replace(/\n/g, '\\n\n');
+
+                const cmd = img2ansi.toPrintfCommand(ansiString);
+                printfCommand.textContent = cmd;
+
+                resultPanel.scrollIntoView({ behavior: 'smooth' });
+
+            } catch (err) {
+                showError(`Error: ${err.message}`);
+                console.error('Error generating ANSI art:', err);
+            } finally {
+                generateButton.disabled = false;
+            }
+        }
+
+        function copyPrintfCommand() {
+            const text = printfCommand.textContent;
+
+            if (!text) return;
+
+            navigator.clipboard.writeText(text)
+                .then(() => {
+                    const originalText = copyButton.textContent;
+                    copyButton.textContent = 'Copied!';
+
+                    setTimeout(() => {
+                        copyButton.textContent = originalText;
+                    }, 1500);
+                })
+                .catch(err => {
+                    showError('Failed to copy. Please copy manually.');
+                    console.error('Copy failed:', err);
+                });
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+        }
+
+        function hideError() {
+            errorMessage.textContent = '';
+        }
+    </script>
+</body>
+</html>
