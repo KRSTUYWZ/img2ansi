@@ -257,7 +257,7 @@ Works seamlessly across browsers, Node.js, and all major platforms
 
 ### 🌐 **Try it Online**
 
-<a href="./index.html" target="_blank">
+<a href="https://vibhek.com/img2ansi/" target="_blank">
   <img src="https://img.shields.io/badge/🚀_Live_Demo-Try_Now-4CAF50?style=for-the-badge&logoColor=white" alt="Live Demo" />
 </a>
 
@@ -271,6 +271,10 @@ Works seamlessly across browsers, Node.js, and all major platforms
 
 ### 💡 **Quick Test**
 
+**🌐 Online Demo:**
+Try it instantly at [vibhek.com/img2ansi](https://vibhek.com/img2ansi/)
+
+**💻 Local Setup:**
 ```bash
 # Clone and try immediately
 git clone https://github.com/vibheksoni/img2ansi.git
